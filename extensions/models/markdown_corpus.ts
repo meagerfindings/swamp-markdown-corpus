@@ -36,6 +36,12 @@ const GlobalArgsSchema: z.ZodObject = z.object({
   signalKeywords: z.array(z.string()).default([]),
   /** Max characters of body text to retain per file (keeps output bounded). */
   maxBodyChars: z.number().default(4000),
+  /**
+   * When true, descend into subdirectories. The `file` field of each digest
+   * then holds the path relative to `directory` (e.g. "2025/notes.md").
+   * Defaults to false (scan only the top level).
+   */
+  recursive: z.boolean().default(false),
 });
 
 /** A single signal-keyword match: which keyword, in which file, on what line. */
@@ -103,6 +109,37 @@ function uniq(arr: string[]): string[] {
   return [...new Set(arr)];
 }
 
+/** A markdown file located during a scan. */
+type WalkedFile = { relPath: string; fullPath: string; baseName: string };
+
+/**
+ * Yield markdown files under `root`. When `recursive` is false, only the top
+ * level is scanned; when true, all nested subdirectories are walked. `relPath`
+ * is relative to `root` (so nested files are disambiguated); `baseName` is the
+ * filename alone, used for date-prefix / name-substring matching.
+ */
+async function* walkMarkdown(
+  root: string,
+  recursive: boolean,
+  prefix = "",
+): AsyncGenerator<WalkedFile> {
+  const base = root.replace(/\/$/, "");
+  for await (const entry of Deno.readDir(base)) {
+    const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory) {
+      if (recursive) yield* walkMarkdown(`${base}/${entry.name}`, true, rel);
+      continue;
+    }
+    if (entry.isFile && entry.name.endsWith(".md")) {
+      yield {
+        relPath: rel,
+        fullPath: `${base}/${entry.name}`,
+        baseName: entry.name,
+      };
+    }
+  }
+}
+
 /** The subset of the swamp model execution context this model uses. */
 type ModelContext = {
   globalArgs: z.infer<typeof GlobalArgsSchema>;
@@ -122,7 +159,7 @@ type ModelContext = {
  */
 export const model = {
   type: "@mgreten/markdown-corpus",
-  version: "2026.06.04.1",
+  version: "2026.06.05.1",
   globalArguments: GlobalArgsSchema,
   resources: {
     "corpus": {
@@ -144,26 +181,24 @@ export const model = {
       ): Promise<{ dataHandles: unknown[] }> => {
         const g = context.globalArgs;
 
-        const matchName = (name: string): boolean => {
-          if (!name.endsWith(".md")) return false;
-          const lower = name.toLowerCase();
+        const matchName = (baseName: string): boolean => {
+          const lower = baseName.toLowerCase();
           if (g.nameContains.some((s) => lower.includes(s.toLowerCase()))) {
             return true;
           }
           if (g.datePrefixes.length === 0 && g.nameContains.length === 0) {
             return true;
           }
-          return g.datePrefixes.some((p) => name.startsWith(p));
+          return g.datePrefixes.some((p) => baseName.startsWith(p));
         };
 
         const fileDigests: z.infer<typeof FileDigestSchema>[] = [];
         const signalHits: z.infer<typeof SignalHitSchema>[] = [];
         const keywordsLower = g.signalKeywords.map((k) => k.toLowerCase());
 
-        for await (const entry of Deno.readDir(g.directory)) {
-          if (!entry.isFile || !matchName(entry.name)) continue;
-          const full = `${g.directory.replace(/\/$/, "")}/${entry.name}`;
-          const text = await Deno.readTextFile(full);
+        for await (const wf of walkMarkdown(g.directory, g.recursive)) {
+          if (!matchName(wf.baseName)) continue;
+          const text = await Deno.readTextFile(wf.fullPath);
           const words = text.split(/\s+/).filter(Boolean).length;
 
           const prRefs = uniq(
@@ -181,7 +216,7 @@ export const model = {
                 if (ll.includes(keywordsLower[i])) {
                   signalHits.push({
                     keyword: g.signalKeywords[i],
-                    file: entry.name,
+                    file: wf.relPath,
                     line: line.trim().slice(0, 240),
                   });
                 }
@@ -190,8 +225,8 @@ export const model = {
           }
 
           fileDigests.push({
-            file: entry.name,
-            inferredDate: inferDate(entry.name),
+            file: wf.relPath,
+            inferredDate: inferDate(wf.baseName),
             headings: extractHeadings(text),
             wordCount: words,
             prRefs,

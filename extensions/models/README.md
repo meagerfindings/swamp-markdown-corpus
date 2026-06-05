@@ -61,6 +61,7 @@ swamp data get my-notes current --json
 | `nameContains`   | `string[]` | `[]`    | Include files whose name contains any of these case-insensitive substrings. |
 | `signalKeywords` | `string[]` | `[]`    | Keywords to count and locate; each hit keeps its surrounding line.          |
 | `maxBodyChars`   | `number`   | `4000`  | Max characters of body text retained per file.                              |
+| `recursive`      | `boolean`  | `false` | Descend into subdirectories; `file` then holds the path relative to `directory`. |
 
 When both `datePrefixes` and `nameContains` are empty, every `*.md` file in the
 directory is included.
