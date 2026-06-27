@@ -159,7 +159,7 @@ type ModelContext = {
  */
 export const model = {
   type: "@mgreten/markdown-corpus",
-  version: "2026.06.05.1",
+  version: "2026.06.27.1",
   globalArguments: GlobalArgsSchema,
   resources: {
     "corpus": {
