@@ -1,6 +1,6 @@
 manifestVersion: 1
 name: "@mgreten/markdown-corpus"
-version: "2026.06.27.1"
+version: "2026.07.16.1"
 description: >
   Ingest a directory of dated markdown notes and extract typed, queryable
   structure — file inventory, headings, PR/ticket references, and
