@@ -16,7 +16,7 @@
 import { z } from "npm:zod@4";
 
 /** Global arguments controlling which files are scanned and what to extract. */
-const GlobalArgsSchema: z.ZodObject = z.object({
+const GlobalArgsSchema = z.object({
   /** Absolute path to the directory containing markdown notes. */
   directory: z.string(),
   /**
@@ -45,14 +45,14 @@ const GlobalArgsSchema: z.ZodObject = z.object({
 });
 
 /** A single signal-keyword match: which keyword, in which file, on what line. */
-const SignalHitSchema: z.ZodObject = z.object({
+const SignalHitSchema = z.object({
   keyword: z.string(),
   file: z.string(),
   line: z.string(),
 });
 
 /** Per-file extracted structure. */
-const FileDigestSchema: z.ZodObject = z.object({
+const FileDigestSchema = z.object({
   file: z.string(),
   inferredDate: z.string().nullable(),
   headings: z.array(z.string()),
@@ -63,14 +63,14 @@ const FileDigestSchema: z.ZodObject = z.object({
 });
 
 /** Aggregate count of a keyword across the corpus, with the files it hit. */
-const SignalRollupSchema: z.ZodObject = z.object({
+const SignalRollupSchema = z.object({
   keyword: z.string(),
   count: z.number(),
   files: z.array(z.string()),
 });
 
 /** The full corpus digest written as the model's `corpus` resource. */
-const CorpusSchema: z.ZodObject = z.object({
+const CorpusSchema = z.object({
   directory: z.string(),
   generatedAt: z.iso.datetime(),
   fileCount: z.number(),
